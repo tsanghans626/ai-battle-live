@@ -1,0 +1,36 @@
+import {
+  GameSyncStateType,
+  RoomSyncStateType,
+  UserSyncStateType,
+} from "./type.d";
+
+interface ServerToClientEvents {
+  syncGameState: (data: GameSyncStateType) => void;
+  syncRoomState: (data: RoomSyncStateType) => void;
+  syncUserState: (data: UserSyncStateType) => void;
+}
+
+interface ClientToServerEvents {
+  createRoom: (data: { roomId: string }) => void;
+  joinRoom: (data: { roomId: string }) => void;
+  leaveRoom: () => void;
+  readyRoom: () => void;
+  readyGame: () => void;
+  act: (data: { row: number; col: number }) => void;
+  think: (data: { message: string }) => void;
+}
+
+interface InterServerEvents {
+  ping: () => void;
+}
+
+interface SocketData {
+  userId: string;
+}
+
+export {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  InterServerEvents,
+  SocketData,
+};
