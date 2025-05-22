@@ -1,0 +1,23 @@
+{
+  "name": "ai-battle-live",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsc --watch src/server/index.ts",
+    "start": "node dist/server/index.js",
+    "build": "tsc --outDir dist/server src/server/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}
