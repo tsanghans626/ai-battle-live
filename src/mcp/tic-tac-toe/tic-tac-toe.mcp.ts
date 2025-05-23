@@ -4,23 +4,21 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { io, Socket } from "socket.io-client";
-import {
-  ServerToClientEvents,
-  ClientToServerEvents,
-} from "./tic-tac-toe.event";
+import { io } from "socket.io-client";
 import {
   GameSyncStateType,
   RoomSyncStateType,
+  TicTocToeSocketType,
   UserSyncStateType,
 } from "./type";
 
 export class TicTacToeMCPService {
-  private _socket: Socket<ServerToClientEvents, ClientToServerEvents>;
+  private _socket: TicTocToeSocketType;
   private _mcp: McpServer;
-  private _userState?: UserSyncStateType;
-  private _roomState?: RoomSyncStateType;
-  private _gameState?: GameSyncStateType;
+  private _loginUserId?: string;
+  private _userStateMap: Map<string, UserSyncStateType>;
+  private _roomStateMap: Map<string, RoomSyncStateType>;
+  private _gameStateMap: Map<string, GameSyncStateType>;
 
   constructor(socketDomain: string) {
     this._socket = io(socketDomain);
@@ -28,40 +26,54 @@ export class TicTacToeMCPService {
       name: "TicTacToe",
       version: "1.0.0",
     });
+    this._userStateMap = new Map();
+    this._roomStateMap = new Map();
+    this._gameStateMap = new Map();
     this.initSocket();
     this.initMCP();
   }
 
   private initSocket() {
     this._socket.on("connect", () => {
-      console.log("Connected to server");
+      // console.log("Connected to server");
     });
     this._socket.on("disconnect", () => {
-      console.log("Disconnected from server");
+      // console.log("Disconnected from server");
     });
     this._socket.on("syncGameState", (data) => {
-      this._gameState = data;
+      if (this._loginUserId) {
+        this._gameStateMap.set(this._loginUserId, data);
+      }
     });
     this._socket.on("syncRoomState", (data) => {
-      this._roomState = data;
+      if (this._loginUserId) {
+        this._roomStateMap.set(this._loginUserId, data);
+      }
     });
     this._socket.on("syncUserState", (data) => {
-      this._userState = data;
+      if (this._loginUserId) {
+        this._userStateMap.set(this._loginUserId, data);
+      }
     });
   }
 
   private initMCP() {
     this._mcp.resource(
       "gameState",
-      new ResourceTemplate("gameState///", { list: undefined }),
-      async (uri, {}) => {
+      new ResourceTemplate("game-state://{userId}", { list: undefined }),
+      async (uri, { userId }) => {
+        const _userId = userId as string;
+        if (_userId !== this._loginUserId) {
+          return {
+            contents: [{ uri: uri.href, text: "请先登录" }],
+          };
+        }
+        const gameState = this._gameStateMap.get(_userId);
         return {
           contents: [
             {
               uri: uri.href,
-              text: this._gameState
-                ? JSON.stringify(this._gameState)
-                : "暂无游戏状态",
+              text: gameState ? JSON.stringify(gameState) : "暂无游戏状态",
             },
           ],
         };
@@ -70,15 +82,20 @@ export class TicTacToeMCPService {
 
     this._mcp.resource(
       "roomState",
-      new ResourceTemplate("roomState///", { list: undefined }),
-      async (uri, {}) => {
+      new ResourceTemplate("room-state://{userId}", { list: undefined }),
+      async (uri, { userId }) => {
+        const _userId = userId as string;
+        if (_userId !== this._loginUserId) {
+          return {
+            contents: [{ uri: uri.href, text: "请先登录" }],
+          };
+        }
+        const roomState = this._roomStateMap.get(_userId);
         return {
           contents: [
             {
               uri: uri.href,
-              text: this._roomState
-                ? JSON.stringify(this._roomState)
-                : "暂无房间状态",
+              text: roomState ? JSON.stringify(roomState) : "暂无房间状态",
             },
           ],
         };
@@ -87,46 +104,105 @@ export class TicTacToeMCPService {
 
     this._mcp.resource(
       "userState",
-      new ResourceTemplate("userState///", { list: undefined }),
-      async (uri, {}) => {
+      new ResourceTemplate("user-state://{userId}", { list: undefined }),
+      async (uri, { userId }) => {
+        const _userId = userId as string;
+        console.log("userId", _userId);
+        console.log("loginUserId", this._loginUserId);
+        if (_userId !== this._loginUserId) {
+          return {
+            contents: [{ uri: uri.href, text: "请先登录" }],
+          };
+        }
+        const userState = this._userStateMap.get(_userId);
         return {
           contents: [
             {
               uri: uri.href,
-              text: this._userState
-                ? JSON.stringify(this._userState)
-                : "暂无用户状态",
+              text: userState ? JSON.stringify(userState) : "暂无用户状态",
             },
           ],
         };
       }
     );
 
+    this._mcp.tool(
+      "login",
+      { userId: z.string(), nickName: z.string() },
+      async ({ userId, nickName }) => {
+        this._socket.emit("login", { userId, nickName });
+        this._loginUserId = userId;
+        return {
+          content: [{ type: "text", text: "登录成功" }],
+        };
+      }
+    );
+
+    this._mcp.tool("logout", {}, async () => {
+      this._socket.emit("logout");
+      this._loginUserId = undefined;
+      return {
+        content: [{ type: "text", text: "登出成功" }],
+      };
+    });
+
     this._mcp.tool("createRoom", { roomId: z.string() }, async ({ roomId }) => {
       this._socket.emit("createRoom", { roomId });
       return {
-        content: [{ type: "text", text: "Room created" }],
+        content: [
+          {
+            type: "text",
+            text: "已发送创建房间请求，请查看userState，确认用户是否在房间中。如果在房间中，请定时查看roomState，确认房间状态。",
+          },
+        ],
       };
     });
 
     this._mcp.tool("joinRoom", { roomId: z.string() }, async ({ roomId }) => {
       this._socket.emit("joinRoom", { roomId });
       return {
-        content: [{ type: "text", text: "Room joined" }],
+        content: [
+          {
+            type: "text",
+            text: "已发送加入房间请求，请查看userState，确认用户是否在房间中。如果在房间中，请定时查看roomState，确认房间状态。",
+          },
+        ],
+      };
+    });
+
+    this._mcp.tool("leaveRoom", {}, async () => {
+      this._socket.emit("leaveRoom");
+      return {
+        content: [
+          {
+            type: "text",
+            text: "已发送离开房间请求，请查看userState，确认用户是否已退出房间。如果仍在房间中，请再次发送离开房间请求。",
+          },
+        ],
       };
     });
 
     this._mcp.tool("readyRoom", {}, async () => {
       this._socket.emit("readyRoom");
       return {
-        content: [{ type: "text", text: "Room ready" }],
+        content: [
+          {
+            type: "text",
+            text: "已发送准备房间请求，请查看userState，确认用户是否已准备。如果未准备，请再次发送准备房间请求。定时获取gameState，确认游戏是否已创建，如果已创建，请发送准备游戏请求。",
+          },
+        ],
       };
     });
 
     this._mcp.tool("readyGame", {}, async () => {
       this._socket.emit("readyGame");
       return {
-        content: [{ type: "text", text: "Game ready" }],
+        content: [
+          {
+            type: "text",
+            text: "已发送准备游戏请求，请查看userState，确认用户是否已准备。如果未准备，请再次发送准备游戏请求。",
+          },
+        ],
       };
     });
 

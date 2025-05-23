@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "tsc --watch src/server/index.ts",
     "start": "node dist/server/index.js",
-    "build": "tsc --outDir dist/server src/server/index.ts"
+    "build": "tsc --outDir dist/server src/server/index.ts",
+    "build:mcp:tic-tac-toe": "tsc -p tsconfig.mcp.json",
+    "dev:mcp:tic-tac-toe": "npx @modelcontextprotocol/inspector tsx src/mcp/tic-tac-toe/index.ts"
   },
   "keywords": [],
   "author": "",

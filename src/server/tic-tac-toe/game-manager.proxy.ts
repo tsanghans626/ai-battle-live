@@ -125,8 +125,8 @@ export class GameManager {
     this._usersStatus.set(player.userId, new UserStatus(player));
   }
 
-  public offline(player: PlayerType): void {
-    this._usersStatus.delete(player.userId);
+  public offline(userId: string): void {
+    this._usersStatus.delete(userId);
   }
 
   public createRoom(userId: string, roomId?: string): RoomStatus {

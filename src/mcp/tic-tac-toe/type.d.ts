@@ -4,7 +4,7 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from "./tic-tac-toe.event";
-import { Socket } from "socket.io";
+import { Socket } from "socket.io-client";
 
 export type PieceType = "O" | "X";
 
@@ -25,10 +25,8 @@ export type PlayerType = {
 };
 
 export type TicTocToeSocketType = Socket<
-  ClientToServerEvents,
   ServerToClientEvents,
-  InterServerEvents,
-  SocketData
+  ClientToServerEvents
 >;
 
 export type GameSyncStateType = {

@@ -2,7 +2,7 @@ import {
   GameSyncStateType,
   RoomSyncStateType,
   UserSyncStateType,
-} from "./type.d";
+} from "./type";
 
 interface ServerToClientEvents {
   syncGameState: (data: GameSyncStateType) => void;
@@ -11,6 +11,8 @@ interface ServerToClientEvents {
 }
 
 interface ClientToServerEvents {
+  login: (data: { userId: string; nickName: string }) => void;
+  logout: () => void;
   createRoom: (data: { roomId: string }) => void;
   joinRoom: (data: { roomId: string }) => void;
   leaveRoom: () => void;
@@ -25,7 +27,7 @@ interface InterServerEvents {
 }
 
 interface SocketData {
-  userId: string;
+  userId?: string;
 }
 
 export {
